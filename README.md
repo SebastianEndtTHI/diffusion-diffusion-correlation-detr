@@ -51,7 +51,7 @@ to train, evaluate, and extend transformer architectures for correlation spectru
 │   └── dataset_1k_c2_big.csv # Examples for generated datasets
 │
 ├── dataset/                  # Visualizations of prediction examples and the network architecture
-|
+│
 ├── training/
 │   └── main.py               # Training & evaluation pipeline
 │   └── dl_models.py          # Transformer model definition
