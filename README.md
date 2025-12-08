@@ -1,2 +1,6 @@
-# correlation-imaging-detr
-Detection Transformer for Direction-Aware Diffusion-Diffusion Correlation MRI
+# Detection Transformer for Direction-Aware Diffusion-Diffusion Correlation MRI
+
+Conventional MR imaging is limited by the spatial resolution defined by the voxel size of the scan. This means that with standard acquisition techniques, tissue structure can only be determined up to a certain level of accuracy. While a voxel in an MR scan outputs only a single measurement value, this value is actually composed of the sum of signals from the different compartments contained within it. Correlation imaging attempts to reconstruct these partial signals as an inverse problem and thus quantify the microstructure of the tissue. By using diffusion-dependent parameters, directional differences between compartments can also be identified, which can help to determine the course of nerve fibers more accurately.
+
+In this work, we show how a deep learning approach can be used to reconstruct these compartments on the diffusion-imaging level in the form of correlation spectra. Using a model based on a Detection Transformer [1], possible compartment sets for a voxel are predicted and evaluated by an additional existence predictor integrated into the model. We demonstrate that it is fundamentally possible to reconstruct an arbitrary number of compartments within a voxel using the same model, without having to specify the number in advance. With the proposed pipeline, it is also possible to adapt the architecture easily to different measurement protocols without modifying the underlying model structure.
+
