@@ -4,3 +4,5 @@ Conventional MR imaging is limited by the spatial resolution defined by the voxe
 
 In this work, we show how a deep learning approach can be used to reconstruct these compartments on the diffusion-imaging level in the form of correlation spectra. Using a model based on a Detection Transformer [1], possible compartment sets for a voxel are predicted and evaluated by an additional existence predictor integrated into the model. We demonstrate that it is fundamentally possible to reconstruct an arbitrary number of compartments within a voxel using the same model, without having to specify the number in advance. With the proposed pipeline, it is also possible to adapt the architecture easily to different measurement protocols without modifying the underlying model structure.
 
+## References
+[1] N. Carion, F. Massa, G. Synnaeve, N. Usunier, A. Kirillov, and S. Zagoruyko, “End-to-End Object Detection with Transformers,” Lecture Notes in Computer Science, 2020. doi: 10.1007/978-3-030-58452-8_13.
