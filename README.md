@@ -9,7 +9,7 @@ diffusion MRI (dMRI) microstructure compartments using a DETR-inspired
 transformer architecture.  
 It includes:
 
-- a transformer-based model (`DWI_DETR_Att`)
+- a transformer-based model (`DWI_DETR`)
 - a Hungarian-matching loss for multi-compartment regression
 - a complete training and evaluation script
 - utilities for logging, data loading, and warm-up scheduling
