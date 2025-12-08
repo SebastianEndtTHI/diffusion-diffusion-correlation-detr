@@ -19,8 +19,7 @@ It includes:
 - utilities for logging, data loading, and warm-up scheduling
 
 This project is structured for clarity and reproducibility, enabling researchers 
-to train, evaluate, and extend transformer architectures for microstructural 
-MRI tasks.
+to train, evaluate, and extend transformer architectures for correlation spectrum reconstruction.
 
 ---
 
