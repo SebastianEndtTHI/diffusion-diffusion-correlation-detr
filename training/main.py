@@ -71,7 +71,7 @@ def main(args):
 
 
     # model initialization
-    model = models.DWI_DETR_Att(args)
+    model = models.DWI_DETR(args)
 
     # load weights of trained model if defined
     if args.model_path:
@@ -183,3 +183,4 @@ if __name__ == '__main__':
 
     # run training
     main(args)
+
