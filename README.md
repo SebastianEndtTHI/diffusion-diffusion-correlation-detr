@@ -64,7 +64,7 @@ Below is a step-by-step guide to running a full training session.
 
 --- 
 
-## 1️⃣ Prepare your dataset
+### 1️⃣ Prepare your dataset
 
 Training and test data must be stored as NumPy files or tensors in the format
 expected by Train_Utils.get_data():
@@ -85,7 +85,7 @@ If needed, I can help you generate a template dataset.
 
 ---
 
-## 2️⃣ Run the training script
+### 2️⃣ Run the training script
 
 The default training pipeline can be launched as:
 
@@ -99,7 +99,7 @@ python main.py \
 
 ---
 
-## 3️⃣ Changing model architecture
+### 3️⃣ Changing model architecture
 
 You can modify:
 - number of transformer decoder layers
@@ -119,7 +119,7 @@ python main.py \
 
 --- 
 
-## 4️⃣ Training hyperparameters
+### 4️⃣ Training hyperparameters
 
 Example with custom optimizer & scheduler settings:
 ```bash
@@ -132,7 +132,7 @@ python main.py \
 
 ---
 
-## 5️⃣ Loss weights
+### 5️⃣ Loss weights
 
 The Hungarian loss allows flexible weighting of sub-tasks:
 ```bash
