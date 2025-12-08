@@ -81,8 +81,6 @@ Each sample must include:
 - input features of shape (input_dim,)
 - corresponding target compartments (flattened)
 
-If needed, I can help you generate a template dataset.
-
 ---
 
 ### 2️⃣ Run the training script
