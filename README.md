@@ -22,8 +22,8 @@ MRI tasks.
 
 ## 🚀 Features
 
-- **Transformer-based architecture** for multi-query compartment regression  
-- **Hungarian matching loss** supporting  
+- **Transformer-based architecture** for multi-query compartment detection  
+- **Hungarian matching loss** computing costs of  
   - Mean diffusivity (MD)  
   - Fractional anisotropy (FA)  
   - Direction vectors (x, y, z)  
@@ -36,181 +36,147 @@ MRI tasks.
 
 ---
 
-# 📦 Installation
+## 📁 Project Structure
 
 ```bash
-git clone <your-repo-url>
-cd <your-repo>
-pip install -r requirements.txt
+│
+├── datagen/
+│   └── dtigenerator.py       # Signal & ground truth generation pipeline
+│   └── main.py               # Dataset generator
+│
+├── dataset/
+│   └── dataset_1k_c2_big.csv # Examples for generated datasets
+│
+├── training/
+│   └── main.py               # Training & evaluation pipeline
+│   └── dl_models.py          # Transformer model definition
+│   └── match_loss.py         # Hungarian matching loss implementation
+│   └── train_utils.py        # Training utilities (loader, scheduler, etc.)
+│
+└── README.md                 # (this file)
 ```
 
-Ensure you have PyTorch installed with CUDA suppport:
+---
 
-```bash
-pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
-```
-
-# 📁 Project Structure
-
-```bash
-├── main.py               # Training & evaluation pipeline
-├── dl_models.py          # Transformer model definition
-├── match_loss.py         # Hungarian matching loss implementation
-├── train_utils.py        # Training utilities (loader, scheduler, etc.)
-├── requirements.txt
-└── README.md             # (this file)
-```
-
-# 📘 Tutorial: How to Train the Model
+## 📘 Tutorial: How to Train the Model
 
 Below is a step-by-step guide to running a full training session.
 
-1️⃣ Prepare your dataset
+--- 
+
+## 1️⃣ Prepare your dataset
 
 Training and test data must be stored as NumPy files or tensors in the format
 expected by Train_Utils.get_data():
 
-(train_data_path)/
-    sample_001.npy
-    sample_002.npy
+```markdown
+dataset/
+    dataset_1k_c2_big.csv
+    dataset_1k_c3_big.csv
+    dataset_1k_c2_small.csv
     ...
+```
 
 Each sample must include:
-
-input features of shape (input_dim,)
-
-corresponding target compartments (flattened)
+- input features of shape (input_dim,)
+- corresponding target compartments (flattened)
 
 If needed, I can help you generate a template dataset.
 
-2️⃣ Run the training script
+---
+
+## 2️⃣ Run the training script
 
 The default training pipeline can be launched as:
 
 ```bash
 python main.py \
-    --train_data_path /path/to/train/ \
-    --test_data_path /path/to/test/ \
-    --model_save_path checkpoints/model.pt \
+    --train_data_path /path/to/train_data/ \
+    --test_data_path /path/to/test_data/ \
+    --model_save_path models/model.pt \
     --log_save_path logs/training_logs.npy
 ```
 
-3️⃣ Changing model architecture
+---
+
+## 3️⃣ Changing model architecture
 
 You can modify:
-
-number of transformer layers
-
-number of decoder queries
-
-hidden dimensions
-
-multi-head configuration
+- number of transformer decoder layers
+- number of decoder queries
+- query size / feature space
+- hidden dimensions
+- multi-head configuration
 
 Example:
-
 ```bash
 python main.py \
-    --n_queries 4 \
-    --hidden_dim 256 \
-    --n_dlayers 3 \
-    --n_multihead 8
+    --n_queries 10 \
+    --hidden_dim 512 \
+    --n_dlayers 4 \
+    --n_multihead 4
 ```
 
-4️⃣ Training hyperparameters
+--- 
+
+## 4️⃣ Training hyperparameters
 
 Example with custom optimizer & scheduler settings:
-
 ```bash
 python main.py \
-    --lr 5e-5 \
-    --lr_step 150 \
-    --w_decay 1e-5 \
-    --epochs 200 \
-    --b_size 128
+    --lr 1e-4 \
+    --w_decay 1e-4 \
+    --epochs 500 \
+    --b_size 256
 ```
 
-5️⃣ Loss weights
+---
+
+## 5️⃣ Loss weights
 
 The Hungarian loss allows flexible weighting of sub-tasks:
-
 ```bash
 python main.py \
-    --md_loss_weight 1.0 \
-    --fa_loss_weight 1.0 \
-    --dir_loss_weight 2.0 \
+    --md_loss_weight 5.0 \
+    --fa_loss_weight 2.0 \
+    --dir_loss_weight 0.5 \
     --wt_loss_weight 1.0 \
-    --no_obj_weight 0.05
+    --no_obj_weight 0.01
 ```
 
-6️⃣ Saving checkpoints
+---
 
-Checkpoints and logs are automatically written every 20 epochs:
-
-```bash
-checkpoints/
-    model_000ep
-    model_020ep
-    model_040ep
-    ...
-logs/
-    logs_020ep.npy
-    logs_040ep.npy
-```
-
-Final model and logs are saved at the end of training.
-
-🧠 Model Overview
+## 🧠 Model Overview
 
 The architecture consists of:
-
-Input encoder
-
-Transformer with multi-head attention
-
-Learned queries for compartment prediction
+- Input encoder
+- Transformer with multi-head attention
+- Learned queries for compartment prediction
 
 Output layers producing:
+- MD
+- FA
+- direction vector (x, y, z)
+- compartment weight
+- existence score
 
-MD
+The model supports auxiliary decoder outputs (`--aux_loss`)
+and optional encoder freezing (`--freeze_encoder`).
 
-FA
+---
 
-direction vector (x, y, z)
+## 📉 Logging and Evaluation
 
-compartment weight
-
-existence score
-
-The model supports auxiliary decoder outputs (--aux_loss)
-and optional encoder freezing (--freeze_encoder).
-
-📉 Logging and Evaluation
-
-Loss curves and detailed metrics can be extracted from:
-
+Loss curves and detailed metrics can be extracted from log dictionary with this keys:
+```nginx
+train_loss
 test_loss
 test_loss_md
 test_loss_fa
 test_loss_di
 test_loss_wt
-q_losses
-
-Add your own visualization scripts for plotting.
-
-🛠 Development Notes
-
-To extend the project:
-
-Add new model variants in dl_models.py
-
-Modify matching cost components in match_loss.py
-
-Customize the training loop in train_utils.py
-
-If you want, I can help you modularize the code even further
-or create Hydra/YAML config support.
-
+test_loss_extnc
+```
 
 
 ## References
