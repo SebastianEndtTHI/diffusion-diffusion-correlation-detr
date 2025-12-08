@@ -80,7 +80,7 @@ class MLP_Head(nn.Module):
 
     
 
-class DWI_DETR_Att(nn.Module):
+class DWI_DETR(nn.Module):
     def __init__(self, args):
         super().__init__()
 
@@ -209,3 +209,4 @@ class DWI_DETR_Att(nn.Module):
 
 
         return torch.cat([md, fa, dir, w, extnc], dim=-1)
+
