@@ -5,7 +5,7 @@ Conventional MR imaging is limited by the spatial resolution defined by the voxe
 In this work, we show how a deep learning approach can be used to reconstruct these compartments on the diffusion-imaging level in the form of correlation spectra. Using a model based on a Detection Transformer [1], possible compartment sets for a voxel are predicted and evaluated by an additional existence predictor integrated into the model. We demonstrate that it is fundamentally possible to reconstruct an arbitrary number of compartments within a voxel using the same model, without having to specify the number in advance. With the proposed pipeline, it is also possible to adapt the architecture easily to different measurement protocols without modifying the underlying model structure.
 
 <p align="center">
-  <img src="./figures/model_input.svg" alt="Architecture diagram" width="700" />
+  <img src="./figures/model_input.svg" alt="Architecture diagram" />
 </p>
 
 This repository provides a full deep-learning pipeline for predicting 
