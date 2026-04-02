@@ -4,7 +4,6 @@ from scipy.optimize import linear_sum_assignment
 import torch.nn.functional as F
 
 
-
 class HungarianLoss(nn.Module):
     def __init__(self, args):
         super().__init__()
@@ -15,7 +14,6 @@ class HungarianLoss(nn.Module):
         self.dir_lmd = args.dir_loss_weight
         self.wt_lmd = args.wt_loss_weight
         self.exs_lmd = args.exs_loss_weight
-
 
     def forward(self, y_pred, y_true, n_comps):
         """
@@ -45,84 +43,76 @@ class HungarianLoss(nn.Module):
         device = y_pred.device
         batch_size, columns = y_true.shape
         n_pred = y_pred.shape[-1] - 1
-        y_true = y_true.reshape(batch_size, int(columns/n_pred), n_pred)
-
+        y_true = y_true.reshape(batch_size, int(columns / n_pred), n_pred)
 
         # cost computation of MD, FA, and weights withs mean squared error
-        md_loss = (y_pred[:,:,0].unsqueeze(2) - y_true[:,:,0].unsqueeze(1))**2
-        fa_loss = (y_pred[:,:,1].unsqueeze(2) - y_true[:,:,1].unsqueeze(1))**2
-        wt_loss = (y_pred[:,:,5].unsqueeze(2) - y_true[:,:,5].unsqueeze(1))**2
+        md_loss = (y_pred[:, :, 0].unsqueeze(2) - y_true[:, :, 0].unsqueeze(1)) ** 2
+        fa_loss = (y_pred[:, :, 1].unsqueeze(2) - y_true[:, :, 1].unsqueeze(1)) ** 2
+        wt_loss = (y_pred[:, :, 5].unsqueeze(2) - y_true[:, :, 5].unsqueeze(1)) ** 2
 
         # direction costs computed with cosine similarity and weighted with the target's FA
-        dir_sim = F.cosine_similarity(y_pred[:,:,2:5].unsqueeze(2), 
-                                     y_true[:,:,2:5].unsqueeze(1), 
-                                     dim=-1)
-        
-        dir_loss = (1 - dir_sim) * y_true[:,:,1].unsqueeze(1)
+        dir_sim = F.cosine_similarity(y_pred[:, :, 2:5].unsqueeze(2),
+                                      y_true[:, :, 2:5].unsqueeze(1),
+                                      dim=-1)
 
+        dir_loss = (1 - dir_sim) * y_true[:, :, 1].unsqueeze(1)
 
         # cost matrix for all prediction-target combinations, with MD, FA, and direction costs
-        cost_matrix_m = (self.md_lmd * md_loss + 
-                        self.fa_lmd * fa_loss + 
-                        self.dir_lmd * dir_loss)
-        
+        cost_matrix_m = (self.md_lmd * md_loss +
+                         self.fa_lmd * fa_loss +
+                         self.dir_lmd * dir_loss)
 
         # prediction-target combinations weighted on target weight
-        cost_matrix_weighted = cost_matrix_m * y_true[:,:,5].unsqueeze(1)
+        cost_matrix_weighted = cost_matrix_m * y_true[:, :, 5].unsqueeze(1)
 
         # adding weight costs to weighted MD, Fa, direction costs
         cost_matrix = cost_matrix_weighted + self.wt_lmd * wt_loss
 
-
         # normalized existence score costs
-        extnc_scores = torch.sigmoid(y_pred[:,:,6])
+        extnc_scores = torch.sigmoid(y_pred[:, :, 6])
         extnc_cost = (1 - extnc_scores).unsqueeze(2).expand(-1, -1, y_true.size(1))
 
         # final cost matrix for matching
         cost_matrix = cost_matrix + self.exs_lmd * extnc_cost
-        
 
         # cpu transfer
         cost_np = cost_matrix.detach().cpu().numpy()
         n_queries = y_pred.size(1)
-        
+
         # Hungarian matching indeces
         all_pred_idx = []
         all_true_idx = []
         all_batch_idx = []
-        
-        for b in range(batch_size):
 
-            # filtering paddings by the number of compartments 
+        for b in range(batch_size):
+            # filtering paddings by the number of compartments
             n_comp = n_comps[b].item() if torch.is_tensor(n_comps[b]) else n_comps[b]
             real_costs = cost_np[b, :, :n_comp]
 
             # matching optimal prediction-target assignments
             row_idx, col_idx = linear_sum_assignment(real_costs)
-            
+
             all_pred_idx.extend(row_idx)
             all_true_idx.extend(col_idx)
             all_batch_idx.extend([b] * len(row_idx))
 
-        
         # laoding indices on gpu if defined
         pred_indices = torch.tensor(all_pred_idx, device=device, dtype=torch.long)
         true_indices = torch.tensor(all_true_idx, device=device, dtype=torch.long)
         batch_indices = torch.tensor(all_batch_idx, device=device, dtype=torch.long)
-        
+
         # metric's costs of the computed matches
         matched_md = md_loss[batch_indices, pred_indices, true_indices]
         matched_fa = fa_loss[batch_indices, pred_indices, true_indices]
         matched_dir = dir_loss[batch_indices, pred_indices, true_indices]
         matched_wt = wt_loss[batch_indices, pred_indices, true_indices]
         batch_weights = y_true[batch_indices, true_indices, 5]
-        
+
         # weighting costs with target weights
         weighted_md = matched_md * batch_weights * self.md_lmd
         weighted_fa = matched_fa * batch_weights * self.fa_lmd
         weighted_dir = matched_dir * batch_weights * self.dir_lmd
         weighted_wt = matched_wt * self.wt_lmd
-        
 
         # creating existence score labels, with 1 for matched predictions and 0 for the rest
         extnc = torch.zeros(batch_size, n_queries, device=device)
@@ -131,18 +121,17 @@ class HungarianLoss(nn.Module):
         # positives weighted up for class balancing
         p_weight = (n_queries - extnc.sum(dim=-1)) / extnc.sum(dim=-1)
         p_weight = torch.clamp(p_weight, min=0.5, max=10.0)
-            
+
         # binary cross entropy as existence score loss
         weighted_bce = nn.BCEWithLogitsLoss(pos_weight=p_weight.unsqueeze(1))
-        cls_loss = weighted_bce(y_pred[:,:,6], extnc)
-        
+        cls_loss = weighted_bce(y_pred[:, :, 6], extnc)
 
         # computing average metric costs per sample
         batch_md_losses = torch.zeros(batch_size, device=device)
         batch_fa_losses = torch.zeros(batch_size, device=device)
         batch_dir_losses = torch.zeros(batch_size, device=device)
         batch_wt_losses = torch.zeros(batch_size, device=device)
-        
+
         for b in range(batch_size):
             b_mask = batch_indices == b
 
@@ -151,13 +140,11 @@ class HungarianLoss(nn.Module):
                 batch_fa_losses[b] = weighted_fa[b_mask].mean()
                 batch_dir_losses[b] = weighted_dir[b_mask].mean()
                 batch_wt_losses[b] = weighted_wt[b_mask].mean()
-        
-        
+
         # final loss summes up metrics' costs of found matches and existence score loss per sample
-        batch_losses = (batch_md_losses + batch_fa_losses + 
-                       batch_dir_losses + batch_wt_losses + 
-                       self.exs_lmd * cls_loss)
-        
+        batch_losses = (batch_md_losses + batch_fa_losses +
+                        batch_dir_losses + batch_wt_losses +
+                        self.exs_lmd * cls_loss)
 
         # return avaerage losses of batch
         loss = batch_losses.mean()
@@ -166,6 +153,5 @@ class HungarianLoss(nn.Module):
         dir_mean = batch_dir_losses.mean()
         wt_mean = batch_wt_losses.mean()
         extnc_mean = self.exs_lmd * cls_loss
-        
+
         return loss, md_mean, fa_mean, dir_mean, wt_mean, extnc_mean
-    
