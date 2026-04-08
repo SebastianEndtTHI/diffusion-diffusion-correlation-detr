@@ -79,7 +79,7 @@ class HungarianLoss(nn.Module):
         cost_np = cost_matrix.detach().cpu().numpy()
         n_queries = y_pred.size(1)
 
-        # Hungarian matching indeces
+        # Hungarian matching indexes
         all_pred_idx = []
         all_true_idx = []
         all_batch_idx = []
@@ -96,7 +96,7 @@ class HungarianLoss(nn.Module):
             all_true_idx.extend(col_idx)
             all_batch_idx.extend([b] * len(row_idx))
 
-        # laoding indices on gpu if defined
+        # loading indices on gpu if defined
         pred_indices = torch.tensor(all_pred_idx, device=device, dtype=torch.long)
         true_indices = torch.tensor(all_true_idx, device=device, dtype=torch.long)
         batch_indices = torch.tensor(all_batch_idx, device=device, dtype=torch.long)
@@ -141,12 +141,12 @@ class HungarianLoss(nn.Module):
                 batch_dir_losses[b] = weighted_dir[b_mask].mean()
                 batch_wt_losses[b] = weighted_wt[b_mask].mean()
 
-        # final loss summes up metrics' costs of found matches and existence score loss per sample
+        # final loss sums up metrics' costs of found matches and existence score loss per sample
         batch_losses = (batch_md_losses + batch_fa_losses +
                         batch_dir_losses + batch_wt_losses +
                         self.exs_lmd * cls_loss)
 
-        # return avaerage losses of batch
+        # return average losses of batch
         loss = batch_losses.mean()
         md_mean = batch_md_losses.mean()
         fa_mean = batch_fa_losses.mean()

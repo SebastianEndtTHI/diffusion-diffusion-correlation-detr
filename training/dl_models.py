@@ -3,14 +3,14 @@ from torch import nn
 from torch.nn import functional as F
 
 
-class DETR_AutoEncoder(nn.Module):
-    def __init__(self, args):
+class DETRAutoEncoder(nn.Module):
+    def __init__(self, detrmodule):
         super().__init__()
 
         # network initialization
-        self.input_dim = 331  # args.input_dim
-        self.hidden_dim = 512  # args.hidden_dim
-        self.fs_dim = 256  # args.fs_dim
+        self.input_dim = detrmodule.input_dim
+        self.hidden_dim = detrmodule.hidden_dim
+        self.fs_dim = detrmodule.fs_dim
 
         # encoder MLP
         self.encoder = nn.Sequential(nn.Linear(self.input_dim, self.hidden_dim),
@@ -50,7 +50,7 @@ class DETR_AutoEncoder(nn.Module):
         return rec
 
 
-class MLP_Head(nn.Module):
+class MLPhead(nn.Module):
     def __init__(self, input_dim, hidden_dim, output_dim, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -73,25 +73,25 @@ class MLP_Head(nn.Module):
         return out
 
 
-class DWI_DETR(nn.Module):
+class DWIdetr(nn.Module):
     def __init__(self, args):
         super().__init__()
 
         # network initialization
-        self.input_dim = 331  # args.input_dim
-        self.hidden_dim = 512  # args.hidden_dim
-        self.fs_dim = 256  # args.fs_dim
-        self.n_queries = 10  # args.n_queries
-        self.n_layers = 4  # args.n_dlayers
-        self.n_heads = 4  # args.n_multihead
+        self.input_dim = args.input_dim  # 64
+        self.hidden_dim = args.hidden_dim  # 512
+        self.fs_dim = args.fs_dim  # 256
+        self.n_queries = args.n_queries  # 10
+        self.n_layers = args.n_dlayers  # 4
+        self.n_heads = args.n_multihead  # 4
 
-        self.aux_loss = False  # args.aux_loss
+        self.aux_loss = args.aux_loss  # False
 
         # encoder initialization
-        self.pretrained = "models/encoder_deep_b2k"  # args.pretrain_path
-        self.freezed = False  # args.freeze_encoder
+        self.pretrained = args.pretrain_path  # "models/encoder_deep_b2k"  # False
+        self.freezed = args.freeze_encoder  # False
 
-        autoencoder = DETR_AutoEncoder(args)
+        autoencoder = DETRAutoEncoder(self)
 
         # loading pretrained weights
         if self.pretrained:
@@ -104,7 +104,7 @@ class DWI_DETR(nn.Module):
 
         self.encoder = autoencoder.encoder
 
-        # query initialzation
+        # query initialization
         self.queries = nn.Embedding(self.n_queries, self.fs_dim)
 
         # transformer decoder
@@ -118,21 +118,21 @@ class DWI_DETR(nn.Module):
                                              norm=self.decoder_norm)
 
         # MLP prediction heads
-        self.md_head = MLP_Head(input_dim=self.fs_dim,
-                                hidden_dim=self.fs_dim,
-                                output_dim=1)
-
-        self.fa_head = MLP_Head(input_dim=self.fs_dim,
-                                hidden_dim=self.fs_dim,
-                                output_dim=1)
-
-        self.di_head = MLP_Head(input_dim=self.fs_dim,
-                                hidden_dim=self.fs_dim,
-                                output_dim=3)
-
-        self.w_head = MLP_Head(input_dim=self.fs_dim,
+        self.md_head = MLPhead(input_dim=self.fs_dim,
                                hidden_dim=self.fs_dim,
                                output_dim=1)
+
+        self.fa_head = MLPhead(input_dim=self.fs_dim,
+                               hidden_dim=self.fs_dim,
+                               output_dim=1)
+
+        self.di_head = MLPhead(input_dim=self.fs_dim,
+                               hidden_dim=self.fs_dim,
+                               output_dim=3)
+
+        self.w_head = MLPhead(input_dim=self.fs_dim,
+                              hidden_dim=self.fs_dim,
+                              output_dim=1)
 
         # Existence score head with concatenated queries
         red_dim = self.fs_dim // 4
@@ -140,9 +140,9 @@ class DWI_DETR(nn.Module):
                                     nn.LayerNorm(red_dim),
                                     nn.ReLU())
 
-        self.extnc_head = MLP_Head(input_dim=red_dim * self.n_queries,
-                                   hidden_dim=self.fs_dim,
-                                   output_dim=self.n_queries)
+        self.extnc_head = MLPhead(input_dim=red_dim * self.n_queries,
+                                  hidden_dim=self.fs_dim,
+                                  output_dim=self.n_queries)
 
     def forward(self, X):
         B = X.size(0)
@@ -185,7 +185,7 @@ class DWI_DETR(nn.Module):
         dir = F.normalize(self.di_head(hs), dim=-1)
         w = F.sigmoid(self.w_head(hs))
 
-        # predictions for existence scores on concatenated queriy vectors
+        # predictions for existence scores on concatenated query vectors
         hs_red = self.qu_red(hs)
         hs_cat = hs_red.reshape(hs.size(0), -1)
 

@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 
 
-class Train_Utils:
+class TrainUtils:
     def __init__(self, model, args, optimizer=None, criterion=None):
         super().__init__()
 

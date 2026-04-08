@@ -6,9 +6,9 @@ import time
 import datetime
 import os
 
-import dl_models as models
-import match_loss as Loss
-from train_utils import Train_Utils
+import dl_models
+import match_loss
+from train_utils import TrainUtils
 
 
 def get_args_parser():
@@ -52,7 +52,7 @@ def get_args_parser():
     parser.add_argument('--fa_loss_weight', default=2.0, type=float, help="lamda weight of FA-loss.")
     parser.add_argument('--dir_loss_weight', default=0.5, type=float, help="lamda weight of direction-loss.")
     parser.add_argument('--wt_loss_weight', default=1.0, type=float, help="lamda weight of weight-loss.")
-    parser.add_argument('--exs_loss_weight', default=0.01, type=float, help="lamda weight of esxistence score-loss.")
+    parser.add_argument('--exs_loss_weight', default=0.01, type=float, help="lamda weight of existence score-loss.")
 
     parser.add_argument('--aux_loss', default=False, type=bool, help="activating the auxiliary loss.")
     parser.add_argument('--aux_m', default=1.0, type=float,
@@ -65,7 +65,7 @@ def main(args):
     start = time.time()
 
     # model initialization
-    model = models.DWI_DETR(args)
+    model = dl_models.DWIdetr(args)
 
     # load weights of trained model if defined
     if args.model_path:
@@ -81,12 +81,12 @@ def main(args):
 
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, args.lr_step)
 
-    criterion = Loss.HungarianLoss(args)
+    criterion = match_loss.HungarianLoss(args)
 
-    setup = Train_Utils(model=model,
-                        optimizer=optimizer,
-                        criterion=criterion,
-                        args=args)
+    setup = TrainUtils(model=model,
+                       optimizer=optimizer,
+                       criterion=criterion,
+                       args=args)
 
     # loading dataset in dataloader
 
@@ -94,14 +94,8 @@ def main(args):
     test_data = setup.get_data(os.path.normpath(os.path.join(os.path.dirname(__file__), '../data', args.test_data_file)), args.b_size, train=False)
 
     # loss dictionary with all components
-    losses = {}
-    losses["train_loss"] = []
-    losses["test_loss"] = []
-    losses["test_loss_md"] = []
-    losses["test_loss_fa"] = []
-    losses["test_loss_di"] = []
-    losses["test_loss_wt"] = []
-    losses["test_loss_extnc"] = []
+    losses = {"train_loss": [], "test_loss": [], "test_loss_md": [], "test_loss_fa": [], "test_loss_di": [],
+              "test_loss_wt": [], "test_loss_extnc": []}
 
     # check for auxiliary loss
     print("Auxiliary loss activated: ", args.aux_loss)
@@ -130,9 +124,9 @@ def main(args):
             torch.save(model.state_dict(), args.model_save_path + f"_{epoch}ep")
             np.save(args.log_save_path + f"_{epoch}ep", losses)
 
-        # epoch informations
+        # epoch information
         print(f"-{str(datetime.datetime.now())} " +
-              f"- Epoche: {epoch + 1:02d}/{args.epochs} " +
+              f"- Epoch: {epoch + 1:02d}/{args.epochs} " +
               f"- Train Loss: {ep_loss:.10f} " +
               f"- Test Loss: {test_losses[0]:.10f} " +
               f"- MD Loss: {test_losses[1]:.10f} " +
@@ -149,7 +143,7 @@ def main(args):
 
     np.save(args.log_save_path, losses)
 
-    # calcualting train duration
+    # calculting train duration
     end = time.time()
     duration = end - start
     struct_time = time.strftime("%H:%M:%S", time.gmtime(duration))
@@ -160,7 +154,7 @@ def main(args):
 # code initialization
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('DETR training and evaluation script', parents=[get_args_parser()])
-    args = parser.parse_args()
+    parserargs = parser.parse_args()
 
     # run training
-    main(args)
+    main(parserargs)
