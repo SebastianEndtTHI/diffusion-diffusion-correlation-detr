@@ -11,7 +11,7 @@ def get_args_parser():
 
     # dataset
     parser.add_argument('--n_samples', default=100000, type=int, help="number of samples to generate.")
-    parser.add_argument('--n_comp_list', nargs="+", default=[1, 2, 3, 4], type=int,
+    parser.add_argument('--n_comp_list', nargs="+", default=[2, 3, 4, 5], type=int,
                         help="list with possible numbers of compartments in a sample.")
 
     # diffusion protocol
@@ -36,13 +36,13 @@ def main(args):
     # loop generating samples
     dataset = []
     for n_comp in tqdm(comp_list):
-        for i in tqdm(range(args.n_samples)):
+        for i in tqdm(range(int(np.ceil(args.n_samples/len(comp_list))))):
 
             # generator initialization
             generator = gen.DTIGenerator(args)
 
             # generate signal and ground truth with n_comp compartments
-            S, md, fa, dir, w = generator.generate_Voxel(n_comp)
+            S, md, fa, dir, w = generator.generate_voxel(n_comp)
 
             # building vector with voxel signal and ground truth for each compartment
             sample = list(S)

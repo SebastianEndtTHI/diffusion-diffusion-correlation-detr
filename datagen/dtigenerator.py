@@ -152,7 +152,7 @@ class DTIGenerator:
 
         return sample
 
-    def generate_Voxel(self, n_comp: int):
+    def generate_voxel(self, n_comp: int):
 
         # generate voxel signal and compartment metrics 
         dir_list = []
