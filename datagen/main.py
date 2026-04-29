@@ -89,7 +89,7 @@ def main(args):
     elif args.dir_type == "disc":
         base_labels = ["MD", "FA", "direction", "weight"]
 
-    # metric colums named for example 'MD_comp1' describing every metric all compartments per sample
+    # metric columns named for example 'MD_comp1' describing every metric all compartments per sample
     comp_label = [f"{label}_comp{i}" for i in range(1, np.max(comp_list) + 1) for label in base_labels]
 
     # last column describes number of compartments per sample

@@ -1,5 +1,6 @@
 import torch
 import numpy as np
+import pickle
 
 import argparse
 import time
@@ -31,7 +32,7 @@ def get_args_parser():
     parser.add_argument('--opt_betas', default=(0.9, 0.98), type=tuple, help="AdamW parameters.")
 
     parser.add_argument('--b_size', default=256, type=int)
-    parser.add_argument('--epochs', default=500, type=int)
+    parser.add_argument('--epochs', default=350, type=int)
 
     parser.add_argument('--device', default="cuda", type=str)
 
@@ -141,9 +142,10 @@ def main(args):
         # safe final model and losses
     torch.save(model.state_dict(), args.model_save_path)
 
-    np.save(args.log_save_path, losses)
+    with open(args.log_save_path, 'wb') as f:
+        pickle.dump(losses, f)
 
-    # calculting train duration
+    # calculating train duration
     end = time.time()
     duration = end - start
     struct_time = time.strftime("%H:%M:%S", time.gmtime(duration))

@@ -219,7 +219,7 @@ class DTIGenerator:
             md = np.mean([lmd1, lmd2, lmd3]) / 3
             md_list.append(md)
 
-            # calculate fratual anisotropy of compartment
+            # calculate fractional anisotropy of compartment
             fa = FA(np.array([lmd1, lmd2, lmd3]))
             fa_list.append(fa)
 
