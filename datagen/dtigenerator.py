@@ -152,7 +152,7 @@ class DTIGenerator:
 
         return sample
 
-    def generate_voxel(self, n_comp: int):
+    def generate_voxel(self, n_comp: int, noiselvl: float):
 
         # generate voxel signal and compartment metrics 
         dir_list = []
@@ -225,6 +225,9 @@ class DTIGenerator:
 
         # sum of random weighted compartment signals build the complete voxel signal
         signals, weight_list = get_multiKompSignal(signal_list)
+
+        # add Gaussian noise
+        signals += np.random.normal(0, noiselvl*np.median(signals), len(signals))
 
         # return voxel signal and metrics of each compartment
         return signals, md_list, fa_list, dir_list, weight_list

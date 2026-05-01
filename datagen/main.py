@@ -13,6 +13,8 @@ def get_args_parser():
     parser.add_argument('--n_samples', default=100000, type=int, help="number of samples to generate.")
     parser.add_argument('--n_comp_list', nargs="+", default=[2, 3, 4, 5], type=int,
                         help="list with possible numbers of compartments in a sample.")
+    parser.add_argument('--noiselvl', default=0.01, type=float,
+                        help="noise level, e.g. 0.01 for 1% Gaussian noise relative to the median of the signal curve.")
 
     # diffusion protocol
     parser.add_argument('--diff_file', default="diff_dirs_b2000.txt", type=str, help="path to diffusion protocol file.")
@@ -42,7 +44,7 @@ def main(args):
             generator = gen.DTIGenerator(args)
 
             # generate signal and ground truth with n_comp compartments
-            S, md, fa, dir, w = generator.generate_voxel(n_comp)
+            S, md, fa, dir, w = generator.generate_voxel(n_comp, args.noiselvl)
 
             # building vector with voxel signal and ground truth for each compartment
             sample = list(S)
