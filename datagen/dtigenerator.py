@@ -22,12 +22,12 @@ def get_diffusionTensor(eigenvalues, Q):
     return D
 
 
-def get_multiKompSignal(comp_signals):
+def get_multiKompSignal(comp_signals, rng):
 
     comp_count = np.size(comp_signals, axis=0)
 
     # generate random weights in uniform distribution
-    weight_borders = np.random.uniform(0, 1, comp_count - 1)
+    weight_borders = rng.uniform(low=0, high=1, size=comp_count-1)
     weight_areas = np.sort(np.append(weight_borders, [0, 1]))
 
     # random weighting for every compartment signal
@@ -75,16 +75,13 @@ def fibonacci_sphere(n):
     return np.array(points)
 
 
-def get_rotation_matrix(r):
-
-    # norm direction on unit sphere
-    r /= np.linalg.norm(r)
+def get_rotation_matrix(r, rng):
 
     # generate random vector, non-parallel to r
-    rand_vec = np.random.randn(3)
+    rand_vec = rng.normal(size=3)
 
     while np.allclose(np.cross(r, rand_vec), 0):
-        rand_vec = np.random.randn(3)
+        rand_vec = rng.normal(size=3)
 
     # orthogonal vectors returned by cross product, normed on unit sphere
     v2 = np.cross(r, rand_vec)
@@ -110,45 +107,17 @@ def compute_signal_and_spectrogram(D, b_value, r):
 
 
 class DTIGenerator:
-    def __init__(self, args):
+    def __init__(self, args, rng):
         super().__init__()
+
+        self.rng = rng
 
         # load diffusion protocol
         self.direction_table = np.loadtxt(os.path.normpath(os.path.join(os.path.dirname(__file__), '../datagen', args.diff_file)), delimiter=",")
 
-        # compartment parameters
-        self.ev_dist = args.ev_dist
-        self.dir_type = args.dir_type
-        self.n_directions = args.n_dir
-
-        # lambda 1 parameters in gm distribution
-        self.means_l1 = [1.0, 0.9, 1.4, 1.9]  # WM, GM, CSF1, CSF2
-        self.stds_l1 = [0.2, 0.15, 0.15, 0.5]
-        self.weights_l1 = [0.35, 0.35, 0.15, 0.15]
-
-        # lambda 2 and 3 parameters in gm distribution
-        self.means_l2 = [0.5, 0.8, 1.2, 1.8]  # WM, GM, CSF1, CSF2
-        self.stds_l2 = [0.15, 0.15, 0.15, 0.5]
-        self.weights_l2 = [0.35, 0.35, 0.15, 0.15]
-
-        # definition of discrete directions on fibonacci sphere
-        directions = fibonacci_sphere(self.n_directions * 2)
-
-        # filter for x-coords >= 0 for direction on the same half of unit sphere
-        self.directions = directions[np.where(directions[:, 0] >= 0)]
-
-    def get_eigenvalue(self, means, stds, weights, size=1):
-
-        if self.ev_dist == "gm":
-
-            # random eigenvalues from realistic gm distribution
-            component = np.random.choice([0, 1, 2, 3], size=size, p=weights).flatten()[0]
-            sample = np.random.normal(loc=means[component], scale=stds[component])
-
-        elif self.ev_dist == "uniform":
-
-            # random eigenvalues between 0 and 3.5 from uniform distribution
-            sample = np.random.random() * 3.5
+    def get_eigenvalues(self):
+        # random eigenvalues between 0 and 3.5 from uniform distribution
+        sample = self.rng.uniform(low=0, high=3.5, size=3)
 
         return sample
 
@@ -165,40 +134,24 @@ class DTIGenerator:
         for c in range(n_comp):
 
             # generate three random eigenvalues from define distribution
-            lmd1 = self.get_eigenvalue(self.means_l1, self.stds_l1, self.weights_l1)
-            lmd2 = self.get_eigenvalue(self.means_l2, self.stds_l2, self.weights_l2)
-            lmd3 = self.get_eigenvalue(self.means_l2, self.stds_l2, self.weights_l2)
+            lmd1, lmd2, lmd3 = self.get_eigenvalues()
 
             # define diagonal eigenvalue matrix
             eig_matrix = get_eigenvalue_matrix(lmd1, lmd2, lmd3)
 
             # generate continuous directions
-            if self.dir_type == "con":
+            # random vector with x-coord >= 0
+            direction = self.rng.normal(size=3)
 
-                # random vector with x-coord >= 0
-                direction = np.random.randn(3)
+            if direction[0] < 0:
+                direction *= -1
 
-                while direction[0] < 0:
-                    direction = np.random.randn(3)
+            # define orientation matrix Q
+            direction /= np.linalg.norm(direction)
+            Q = get_rotation_matrix(direction, self.rng)
 
-                # define orientation matrix Q
-                Q = get_rotation_matrix(direction)
-
-                # save normed directions for ground truth
-                direction /= np.linalg.norm(direction)
-                dir_list.append(direction)
-
-            # generate continuous directions
-            elif self.dir_type == "disc":
-
-                # choose random index to define direction for fibonacci sphere
-                dir_idx = np.random.choice(range(self.directions.shape[0] - 1))
-
-                # define orientation matrix Q
-                Q = get_rotation_matrix(self.directions[dir_idx])
-
-                # save direction index for ground truth
-                dir_list.append(dir_idx + 1)
+            # save normed directions for ground truth
+            dir_list.append(direction)
 
             # compute diffusion tensor
             D_comp = get_diffusionTensor(eig_matrix, Q)
@@ -224,10 +177,10 @@ class DTIGenerator:
             fa_list.append(fa)
 
         # sum of random weighted compartment signals build the complete voxel signal
-        signals, weight_list = get_multiKompSignal(signal_list)
+        signals, weight_list = get_multiKompSignal(signal_list, self.rng)
 
         # add Gaussian noise
-        signals += np.random.normal(0, noiselvl*np.median(signals), len(signals))
+        signals += self.rng.normal(loc=0, scale=noiselvl*np.median(signals), size=len(signals))
 
         # return voxel signal and metrics of each compartment
         return signals, md_list, fa_list, dir_list, weight_list
