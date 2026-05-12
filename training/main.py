@@ -6,6 +6,7 @@ import argparse
 import time
 import datetime
 import os
+import random
 
 import dl_models
 import match_loss
@@ -21,9 +22,11 @@ def get_args_parser():
 
     parser.add_argument('--model_save_path', default="detr_model", type=str)
     parser.add_argument('--log_save_path', default="detr_logs", type=str)
+    parser.add_argument('--output_save_path', default="detr_output", type=str)
 
     parser.add_argument('--model_path', default=None, type=str, help="path of trained model.")
     parser.add_argument('--pretrain_path', default=None, type=str, help="path of pretrained encoder.")
+    parser.add_argument('--seed', default=0, type=int, help="random seed for reproducibility.")
 
     # train parameters
     parser.add_argument('--lr', default=1e-4, type=float)
@@ -65,6 +68,16 @@ def get_args_parser():
 def main(args):
     start = time.time()
 
+    random.seed(args.seed)
+    np.random.seed(args.seed)
+    torch.manual_seed(args.seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(args.seed)
+        torch.cuda.manual_seed_all(args.seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    rng = np.random.default_rng(args.seed)
+
     # model initialization
     model = dl_models.DWIdetr(args)
 
@@ -91,8 +104,8 @@ def main(args):
 
     # loading dataset in dataloader
 
-    train_data = setup.get_data(os.path.normpath(os.path.join(os.path.dirname(__file__), '../data', args.train_data_file)), args.b_size, train=True)
-    test_data = setup.get_data(os.path.normpath(os.path.join(os.path.dirname(__file__), '../data', args.test_data_file)), args.b_size, train=False)
+    train_data = setup.get_data(os.path.normpath(os.path.join(os.path.dirname(__file__), '../data', args.train_data_file)), args.b_size, train=True, seed=args.seed)
+    test_data = setup.get_data(os.path.normpath(os.path.join(os.path.dirname(__file__), '../data', args.test_data_file)), args.b_size, train=False, seed=args.seed)
 
     # loss dictionary with all components
     losses = {"train_loss": [], "test_loss": [], "test_loss_md": [], "test_loss_fa": [], "test_loss_di": [],
@@ -107,7 +120,7 @@ def main(args):
     for epoch in range(args.epochs):
 
         # training and evaluation run for one epoch
-        ep_loss, test_losses = setup.train_epoch(train_data, test_data, epoch)
+        ep_loss, test_losses = setup.train_epoch(train_data, test_data)
 
         scheduler.step()
 
@@ -122,8 +135,8 @@ def main(args):
 
         # save model and log file every 20 epochs
         if epoch % 20 == 0:
-            torch.save(model.state_dict(), args.model_save_path + f"_{epoch}ep")
-            np.save(args.log_save_path + f"_{epoch}ep", losses)
+            torch.save(model.state_dict(), os.path.normpath(os.path.join(os.path.dirname(__file__), '../models', args.model_save_path + f"_{epoch}ep")))
+            np.save(os.path.normpath(os.path.join(os.path.dirname(__file__), '../models', args.log_save_path + f"_{epoch}ep")), losses)
 
         # epoch information
         print(f"-{str(datetime.datetime.now())} " +
@@ -140,9 +153,9 @@ def main(args):
         torch.cuda.empty_cache()
 
         # safe final model and losses
-    torch.save(model.state_dict(), args.model_save_path)
+    torch.save(model.state_dict(), os.path.normpath(os.path.join(os.path.dirname(__file__), '../models', args.model_save_path)))
 
-    with open(args.log_save_path, 'wb') as f:
+    with open(os.path.normpath(os.path.join(os.path.dirname(__file__), '../models', args.log_save_path + '.pkl')), 'wb') as f:
         pickle.dump(losses, f)
 
     # calculating train duration
@@ -151,6 +164,51 @@ def main(args):
     struct_time = time.strftime("%H:%M:%S", time.gmtime(duration))
 
     print(f"Training finished in {struct_time}")
+
+    # test evaluation
+
+    model.eval()
+
+    all_predictions = []
+    all_ground_truths = []
+    all_n_comps = []
+
+    with torch.no_grad():
+        for data, label, n_comp in test_data:
+            X = data.to(args.device)
+            y = label.to(args.device)
+            outputs = model(X)
+            pred = outputs  # ['pred']
+            all_predictions.append(pred.cpu().numpy())
+            all_ground_truths.append(y.cpu().numpy())
+            # n_comp can be a tensor or numpy array, convert to numpy
+            if torch.is_tensor(n_comp):
+                all_n_comps.append(n_comp.cpu().numpy())
+            else:
+                all_n_comps.append(np.array(n_comp))
+
+    all_predictions = np.concatenate(all_predictions, axis=0)
+    all_ground_truths = np.concatenate(all_ground_truths, axis=0)
+    all_n_comps = np.concatenate(all_n_comps, axis=0)
+
+    individual_losses = []
+    for idx, (pred_np, gt_np) in enumerate(zip(all_predictions, all_ground_truths)):
+        pred_tensor = torch.tensor(pred_np, dtype=torch.float32, device=args.device).unsqueeze(0)
+        gt_tensor = torch.tensor(gt_np, dtype=torch.float32, device=args.device).unsqueeze(0)
+        n_comp = [all_n_comps[idx]]  # HungarianLoss expects a list/array per batch
+        loss_components = criterion(pred_tensor, gt_tensor, n_comp)
+        individual_losses.append([l.item() if hasattr(l, 'item') else float(l) for l in loss_components])
+
+    results = {
+        'predictions': all_predictions,
+        'ground_truths': all_ground_truths,
+        'losses': individual_losses,
+        'n_comp': all_n_comps
+    }
+
+    with open(os.path.normpath(os.path.join(os.path.dirname(__file__), '../models', args.output_save_path + '.pkl')),
+              'wb') as f:
+        pickle.dump(results, f)
 
 
 # code initialization

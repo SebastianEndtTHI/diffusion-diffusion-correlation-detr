@@ -19,7 +19,7 @@ class TrainUtils:
         self.aux_loss = args.aux_loss
         self.aux_m = args.aux_m
 
-    def train_model(self, train_data, epoch):
+    def train_model(self, train_data):
 
         # train one epoch
         epoch_loss = []
@@ -67,7 +67,7 @@ class TrainUtils:
         di_test = []
         wt_test = []
         extnc_test = []
-        q_loss = []
+        out = None
 
         self.model.eval()
 
@@ -93,15 +93,12 @@ class TrainUtils:
             wt_test.append(loss[4].cpu().item())
             extnc_test.append(loss[5].cpu().item())
 
-        return (np.mean(test_loss),
-                np.mean(md_test),
-                np.mean(fa_test),
-                np.mean(di_test),
-                np.mean(wt_test),
-                np.mean(extnc_test))
+        return (np.mean(test_loss), np.mean(md_test), np.mean(fa_test),
+                np.mean(di_test), np.mean(wt_test), np.mean(extnc_test)), \
+               out
 
     @staticmethod
-    def get_data(path, b_size, train=True):
+    def get_data(path, b_size, train=True, seed=None):
 
         # load dataset
         df_train = pd.read_csv(path).fillna(0)
@@ -123,16 +120,16 @@ class TrainUtils:
 
         # create dataloader
         data_tensor = TensorDataset(X_tensor, y_tensor, ncomp_tensor)
-        dataloader = DataLoader(data_tensor, batch_size=b_size, shuffle=train)
+        dataloader = DataLoader(data_tensor, batch_size=b_size, shuffle=train, generator=torch.Generator().manual_seed(seed))
 
         return dataloader
 
-    def train_epoch(self, train_data, test_data, epoch):
+    def train_epoch(self, train_data, test_data):
 
         # train one epoch
-        ep_loss = self.train_model(train_data, epoch)
+        ep_loss = self.train_model(train_data)
 
         # evaluation run
-        losses = self.pred_model(test_data)
+        losses, _ = self.pred_model(test_data)
 
         return ep_loss, losses
