@@ -13,7 +13,7 @@ def get_args_parser():
     parser = argparse.ArgumentParser('Set dataset generator', add_help=False)
 
     # dataset
-    parser.add_argument('--n_samples', default=100, type=int, help="number of samples to generate.")
+    parser.add_argument('--n_samples', default=100000, type=int, help="number of samples to generate.")
     parser.add_argument('--n_comp_list', nargs="+", default=[1, 2, 3, 4, 5], type=int,
                         help="list with possible numbers of compartments in a sample.")
     parser.add_argument('--split', nargs="+", default=[0.8, 0.2], type=float, help="train/test split ratio.")
@@ -93,7 +93,7 @@ def main(args):
 
         df = pd.DataFrame(dataset, columns=column_label)
         df.to_csv(os.path.normpath(os.path.join(os.path.dirname(__file__), '../data', timestamp +
-                                                '_N' + str(args.n_samples) + '_ncomp' + str(args.n_comp_list) +
+                                                '_N' + str(args.n_samples) + '_ncomp' + str(args.n_comp_list).replace(' ', '') +
                                                 '_noise' + str(args.noiselvl) + '_' + split_labels[split_idx] + '.csv')),
                   index_label='idx')
 
