@@ -16,7 +16,7 @@ def get_args_parser():
     parser.add_argument('--n_samples', default=100000, type=int, help="number of samples to generate.")
     parser.add_argument('--n_comp_list', nargs="+", default=[1, 2, 3, 4, 5], type=int,
                         help="list with possible numbers of compartments in a sample.")
-    parser.add_argument('--split', nargs="+", default=[0.8, 0.2], type=float, help="train/test split ratio.")
+    parser.add_argument('--split', nargs="+", default=[0.8, 0.1, 0.1], type=float, help="train/val/test split ratio.")
     parser.add_argument('--noiselvl', default=0.01, type=float,
                         help="noise level, e.g. 0.01 for 1% Gaussian noise relative to the median of the signal curve.")
     parser.add_argument('--seed', default=0, type=int, help="random seed for reproducibility.")
@@ -33,10 +33,10 @@ def main(args):
 
     rng = np.random.default_rng(args.seed)
 
-    if len(args.split) != 2:
-        raise ValueError("Split argument must contain exactly two values for train and test split.")
+    if len(args.split) != 3:
+        raise ValueError("Split argument must contain exactly three values for train-val-test split.")
     datasplit = args.split / np.sum(args.split)
-    split_labels = ["train", "test"]
+    split_labels = ["train", "val", "test"]
 
     for split_idx, split in enumerate(datasplit):
         split_samples = int(np.round(args.n_samples * split))

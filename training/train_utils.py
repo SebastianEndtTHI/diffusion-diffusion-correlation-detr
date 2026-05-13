@@ -58,20 +58,20 @@ class TrainUtils:
 
         return np.mean(epoch_loss)
 
-    def pred_model(self, test_data):
+    def pred_model(self, pred_data):
 
         # model evaluation
-        test_loss = []
-        md_test = []
-        fa_test = []
-        di_test = []
-        wt_test = []
-        extnc_test = []
+        pred_loss = []
+        md_pred = []
+        fa_pred = []
+        di_pred = []
+        wt_pred = []
+        extnc_pred = []
         out = None
 
         self.model.eval()
 
-        for data, label, n_comp in test_data:
+        for data, label, n_comp in pred_data:
 
             X = data.to(self.device)  # (B, signal_size)
             y = label.to(self.device)  # (B, n_comp * 7)   7 ≙ MD, FA, X-dir, Y-dir, Z-dir, weight, existence score
@@ -85,16 +85,16 @@ class TrainUtils:
             else:
                 loss = self.crit(out, y, c)
 
-                # safe loss components for evaluation
-            test_loss.append(loss[0].cpu().item())
-            md_test.append(loss[1].cpu().item())
-            fa_test.append(loss[2].cpu().item())
-            di_test.append(loss[3].cpu().item())
-            wt_test.append(loss[4].cpu().item())
-            extnc_test.append(loss[5].cpu().item())
+            # safe loss components for evaluation
+            pred_loss.append(loss[0].cpu().item())
+            md_pred.append(loss[1].cpu().item())
+            fa_pred.append(loss[2].cpu().item())
+            di_pred.append(loss[3].cpu().item())
+            wt_pred.append(loss[4].cpu().item())
+            extnc_pred.append(loss[5].cpu().item())
 
-        return (np.mean(test_loss), np.mean(md_test), np.mean(fa_test),
-                np.mean(di_test), np.mean(wt_test), np.mean(extnc_test)), \
+        return (np.mean(pred_loss), np.mean(md_pred), np.mean(fa_pred),
+                np.mean(di_pred), np.mean(wt_pred), np.mean(extnc_pred)), \
                out
 
     @staticmethod
@@ -124,12 +124,15 @@ class TrainUtils:
 
         return dataloader
 
-    def train_epoch(self, train_data, test_data):
+    def train_epoch(self, train_data, val_data, best_val_loss, model_path):
+        # Training step
+        train_loss = self.train_model(train_data)
 
-        # train one epoch
-        ep_loss = self.train_model(train_data)
+        # Validation step using pred_model
+        val_losses, _ = self.pred_model(val_data)
+        # Model checkpointing
+        if val_losses[0] < best_val_loss:
+            torch.save(self.model.state_dict(), model_path)
+            best_val_loss = val_losses[0]
 
-        # evaluation run
-        losses, _ = self.pred_model(test_data)
-
-        return ep_loss, losses
+        return train_loss, val_losses, best_val_loss

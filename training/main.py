@@ -18,6 +18,7 @@ def get_args_parser():
 
     # paths
     parser.add_argument('--train_data_file', default=None, type=str)
+    parser.add_argument('--val_data_file', default=None, type=str)
     parser.add_argument('--test_data_file', default=None, type=str)
 
     parser.add_argument('--model_save_path', default="detr_model", type=str)
@@ -102,14 +103,16 @@ def main(args):
                        criterion=criterion,
                        args=args)
 
-    # loading dataset in dataloader
+    best_model_path = os.path.normpath(os.path.join(os.path.dirname(__file__), '../models', args.model_save_path + "_best"))
 
+    # loading dataset in dataloader
     train_data = setup.get_data(os.path.normpath(os.path.join(os.path.dirname(__file__), '../data', args.train_data_file)), args.b_size, train=True, seed=args.seed)
+    val_data = setup.get_data(os.path.normpath(os.path.join(os.path.dirname(__file__), '../data', args.val_data_file)), args.b_size, train=False, seed=args.seed)
     test_data = setup.get_data(os.path.normpath(os.path.join(os.path.dirname(__file__), '../data', args.test_data_file)), args.b_size, train=False, seed=args.seed)
 
     # loss dictionary with all components
-    losses = {"train_loss": [], "test_loss": [], "test_loss_md": [], "test_loss_fa": [], "test_loss_di": [],
-              "test_loss_wt": [], "test_loss_extnc": []}
+    losses = {"train_loss": [], "val_loss": [], "val_loss_md": [], "val_loss_fa": [], "val_loss_di": [],
+              "val_loss_wt": [], "val_loss_extnc": []}
 
     # check for auxiliary loss
     print("Auxiliary loss activated: ", args.aux_loss)
@@ -117,21 +120,23 @@ def main(args):
     print("Start training")
 
     # start training
+    best_val_loss = np.inf
     for epoch in range(args.epochs):
 
         # training and evaluation run for one epoch
-        ep_loss, test_losses = setup.train_epoch(train_data, test_data)
+        ep_loss, val_losses, best_val_loss = setup.train_epoch(
+            train_data, val_data, best_val_loss, best_model_path)
 
         scheduler.step()
 
         # save aggregated results
         losses["train_loss"].append(ep_loss)
-        losses["test_loss"].append(test_losses[0])
-        losses["test_loss_md"].append(test_losses[1])
-        losses["test_loss_fa"].append(test_losses[2])
-        losses["test_loss_di"].append(test_losses[3])
-        losses["test_loss_wt"].append(test_losses[4])
-        losses["test_loss_extnc"].append(test_losses[5])
+        losses["val_loss"].append(val_losses[0])
+        losses["val_loss_md"].append(val_losses[1])
+        losses["val_loss_fa"].append(val_losses[2])
+        losses["val_loss_di"].append(val_losses[3])
+        losses["val_loss_wt"].append(val_losses[4])
+        losses["val_loss_extnc"].append(val_losses[5])
 
         # save model and log file every 20 epochs
         if epoch % 20 == 0:
@@ -142,18 +147,18 @@ def main(args):
         print(f"-{str(datetime.datetime.now())} " +
               f"- Epoch: {epoch + 1:02d}/{args.epochs} " +
               f"- Train Loss: {ep_loss:.10f} " +
-              f"- Test Loss: {test_losses[0]:.10f} " +
-              f"- MD Loss: {test_losses[1]:.10f} " +
-              f"- FA Loss: {test_losses[2]:.10f} " +
-              f"- Direction Loss: {test_losses[3]:.10f} " +
-              f"- Weight Loss: {test_losses[4]:.10f} " +
-              f"- Existence Loss: {test_losses[5]:.10f}")
+              f"- Val Loss: {val_losses[0]:.10f} " +
+              f"- MD Loss: {val_losses[1]:.10f} " +
+              f"- FA Loss: {val_losses[2]:.10f} " +
+              f"- Direction Loss: {val_losses[3]:.10f} " +
+              f"- Weight Loss: {val_losses[4]:.10f} " +
+              f"- Existence Loss: {val_losses[5]:.10f}")
 
         # clearing gpu cache
         torch.cuda.empty_cache()
 
-        # safe final model and losses
-    torch.save(model.state_dict(), os.path.normpath(os.path.join(os.path.dirname(__file__), '../models', args.model_save_path)))
+    # safe final model and losses
+    # torch.save(model.state_dict(), os.path.normpath(os.path.join(os.path.dirname(__file__), '../models', args.model_save_path)))
 
     with open(os.path.normpath(os.path.join(os.path.dirname(__file__), '../models', args.log_save_path + '.pkl')), 'wb') as f:
         pickle.dump(losses, f)
@@ -166,7 +171,7 @@ def main(args):
     print(f"Training finished in {struct_time}")
 
     # test evaluation
-
+    model.load_state_dict(torch.load(best_model_path, map_location=args.device))
     model.eval()
 
     all_predictions = []
