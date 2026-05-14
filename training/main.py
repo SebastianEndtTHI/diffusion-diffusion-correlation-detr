@@ -21,12 +21,12 @@ def get_args_parser():
     parser.add_argument('--val_data_file', default=None, type=str)
     parser.add_argument('--test_data_file', default=None, type=str)
 
-    parser.add_argument('--model_save_path', default="detr_model", type=str)
-    parser.add_argument('--log_save_path', default="detr_logs", type=str)
-    parser.add_argument('--output_save_path', default="detr_output", type=str)
+    parser.add_argument('--model_folder', default=None, type=str)
 
     parser.add_argument('--model_path', default=None, type=str, help="path of trained model.")
     parser.add_argument('--pretrain_path', default=None, type=str, help="path of pretrained encoder.")
+
+    # reproducibility
     parser.add_argument('--seed', default=0, type=int, help="random seed for reproducibility.")
 
     # train parameters
@@ -103,7 +103,7 @@ def main(args):
                        criterion=criterion,
                        args=args)
 
-    best_model_path = os.path.normpath(os.path.join(os.path.dirname(__file__), '../models', args.model_save_path + "_best"))
+    best_model_path = os.path.normpath(os.path.join(os.path.dirname(__file__), '../models', args.model_folder, "detr_model_best"))
 
     # loading dataset in dataloader
     train_data = setup.get_data(os.path.normpath(os.path.join(os.path.dirname(__file__), '../data', args.train_data_file)), args.b_size, train=True, seed=args.seed)
@@ -140,8 +140,8 @@ def main(args):
 
         # save model and log file every 20 epochs
         if epoch % 20 == 0:
-            torch.save(model.state_dict(), os.path.normpath(os.path.join(os.path.dirname(__file__), '../models', args.model_save_path + f"_{epoch}ep")))
-            np.save(os.path.normpath(os.path.join(os.path.dirname(__file__), '../models', args.log_save_path + f"_{epoch}ep")), losses)
+            torch.save(model.state_dict(), os.path.normpath(os.path.join(os.path.dirname(__file__), '../models', args.model_folder,  f"detr_model_{epoch}ep")))
+            np.save(os.path.normpath(os.path.join(os.path.dirname(__file__), '../models', args.model_folder, f"detr_logs_{epoch}ep")), losses)
 
         # epoch information
         print(f"-{str(datetime.datetime.now())} " +
@@ -157,10 +157,7 @@ def main(args):
         # clearing gpu cache
         torch.cuda.empty_cache()
 
-    # safe final model and losses
-    # torch.save(model.state_dict(), os.path.normpath(os.path.join(os.path.dirname(__file__), '../models', args.model_save_path)))
-
-    with open(os.path.normpath(os.path.join(os.path.dirname(__file__), '../models', args.log_save_path + '.pkl')), 'wb') as f:
+    with open(os.path.normpath(os.path.join(os.path.dirname(__file__), '../models', args.model_folder, 'detr_logs.pkl')), 'wb') as f:
         pickle.dump(losses, f)
 
     # calculating train duration
@@ -211,7 +208,7 @@ def main(args):
         'n_comp': all_n_comps
     }
 
-    with open(os.path.normpath(os.path.join(os.path.dirname(__file__), '../models', args.output_save_path + '.pkl')),
+    with open(os.path.normpath(os.path.join(os.path.dirname(__file__), '../models', 'detr_output.pkl')),
               'wb') as f:
         pickle.dump(results, f)
 
