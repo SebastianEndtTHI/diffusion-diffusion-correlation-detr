@@ -36,7 +36,7 @@ def get_args_parser():
     parser.add_argument('--opt_betas', default=(0.9, 0.98), type=tuple, help="AdamW parameters.")
 
     parser.add_argument('--b_size', default=256, type=int)
-    parser.add_argument('--epochs', default=350, type=int)
+    parser.add_argument('--epochs', default=150, type=int)
 
     parser.add_argument('--device', default="cuda", type=str)
 
@@ -103,6 +103,8 @@ def main(args):
                        criterion=criterion,
                        args=args)
 
+    if not os.path.exists(os.path.normpath(os.path.join(os.path.dirname(__file__), '../models', args.model_folder))):
+        os.makedirs(os.path.normpath(os.path.join(os.path.dirname(__file__), '../models', args.model_folder)))
     best_model_path = os.path.normpath(os.path.join(os.path.dirname(__file__), '../models', args.model_folder, "detr_model_best"))
 
     # loading dataset in dataloader

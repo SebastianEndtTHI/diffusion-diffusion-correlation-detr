@@ -49,32 +49,6 @@ def get_multiKompSignal(comp_signals, rng):
     return voxel_signals, weights
 
 
-def fibonacci_sphere(n):
-
-    points = []
-
-    # The golden angle (in radians), used to achieve uniform spacing
-    phi = np.pi * (3.0 - np.sqrt(5.0))
-
-    for i in range(n):
-        # Map index i to y-coordinate in [-1, 1]
-        y = 1 - (i / float(n - 1)) * 2.0
-
-        # Radius of the circle at height y on the unit sphere
-        radius = np.sqrt(1.0 - y * y)
-
-        # Angular position around the circle
-        theta = phi * i
-
-        # Convert spherical coordinates to Cartesian coordinates
-        x = np.cos(theta) * radius
-        z = np.sin(theta) * radius
-
-        points.append([x, y, z])
-
-    return np.array(points)
-
-
 def get_rotation_matrix(r, rng):
 
     # generate random vector, non-parallel to r
@@ -111,13 +85,14 @@ class DTIGenerator:
         super().__init__()
 
         self.rng = rng
+        self.max_eig = args.max_eigval
 
         # load diffusion protocol
         self.direction_table = np.loadtxt(os.path.normpath(os.path.join(os.path.dirname(__file__), '../datagen', args.diff_file)), delimiter=",")
 
     def get_eigenvalues(self):
-        # random eigenvalues between 0 and 3.5 from uniform distribution
-        sample = self.rng.uniform(low=0, high=3.5, size=3)
+        # random eigenvalues between 0 and 5 from uniform distribution
+        sample = self.rng.uniform(low=0, high=self.max_eig, size=3)
 
         return sample
 

@@ -13,12 +13,13 @@ def get_args_parser():
     parser = argparse.ArgumentParser('Set dataset generator', add_help=False)
 
     # dataset
-    parser.add_argument('--n_samples', default=100000, type=int, help="number of samples to generate.")
+    parser.add_argument('--n_samples', default=250000, type=int, help="number of samples to generate.")
     parser.add_argument('--n_comp_list', nargs="+", default=[1, 2, 3, 4, 5], type=int,
                         help="list with possible numbers of compartments in a sample.")
     parser.add_argument('--split', nargs="+", default=[0.8, 0.1, 0.1], type=float, help="train/val/test split ratio.")
     parser.add_argument('--noiselvl', default=0.01, type=float,
                         help="noise level, e.g. 0.01 for 1% Gaussian noise relative to the median of the signal curve.")
+    parser.add_argument('--max_eigval', default=4., type=float, help="maximum eigenvalue for diffusion tensors.")
     parser.add_argument('--seed', default=0, type=int, help="random seed for reproducibility.")
 
     # diffusion protocol
@@ -93,8 +94,11 @@ def main(args):
 
         df = pd.DataFrame(dataset, columns=column_label)
         df.to_csv(os.path.normpath(os.path.join(os.path.dirname(__file__), '../data', timestamp +
-                                                '_N' + str(args.n_samples) + '_ncomp' + str(args.n_comp_list).replace(' ', '') +
-                                                '_noise' + str(args.noiselvl) + '_' + split_labels[split_idx] + '.csv')),
+                                                '_N' + str(args.n_samples) +
+                                                '_ncomp' + str(args.n_comp_list).replace(' ', '') +
+                                                '_maxeig' + str(args.max_eigval) +
+                                                '_noise' + str(args.noiselvl) +
+                                                '_' + split_labels[split_idx] + '.csv')),
                   index_label='idx')
 
 
