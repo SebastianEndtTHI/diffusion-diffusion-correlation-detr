@@ -179,8 +179,9 @@ class DWIdetr(nn.Module):
 
     def make_predictions(self, hs):
 
-        # normalized predictions for spectrum metrics 
-        md = F.sigmoid(self.md_head(hs))
+        # MD: softplus keeps output strictly positive without an upper bound
+        # FA, weight: sigmoid is correct since both are bounded [0, 1]
+        md = F.softplus(self.md_head(hs))
         fa = F.sigmoid(self.fa_head(hs))
         dir = F.normalize(self.di_head(hs), dim=-1)
         w = F.sigmoid(self.w_head(hs))

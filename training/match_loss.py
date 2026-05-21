@@ -155,3 +155,48 @@ class HungarianLoss(nn.Module):
         extnc_mean = self.exs_lmd * cls_loss
 
         return loss, md_mean, fa_mean, dir_mean, wt_mean, extnc_mean
+
+    def get_matching_indices(self, y_pred, y_true, n_comps):
+        """
+        Run Hungarian matching and return per-sample (pred_idx, true_idx) pairs,
+        identical to the matching logic in forward() but without computing losses.
+
+        Returns:
+            List of (row_idx, col_idx) numpy arrays, one tuple per sample in the batch.
+            row_idx[i] is the query index matched to ground-truth compartment col_idx[i].
+        """
+        device = y_pred.device
+        batch_size, columns = y_true.shape
+        n_pred = y_pred.shape[-1] - 1
+        y_true_r = y_true.reshape(batch_size, int(columns / n_pred), n_pred)
+
+        md_loss = (y_pred[:, :, 0].unsqueeze(2) - y_true_r[:, :, 0].unsqueeze(1)) ** 2
+        fa_loss = (y_pred[:, :, 1].unsqueeze(2) - y_true_r[:, :, 1].unsqueeze(1)) ** 2
+        wt_loss = (y_pred[:, :, 5].unsqueeze(2) - y_true_r[:, :, 5].unsqueeze(1)) ** 2
+
+        dir_sim = torch.nn.functional.cosine_similarity(
+            y_pred[:, :, 2:5].unsqueeze(2),
+            y_true_r[:, :, 2:5].unsqueeze(1),
+            dim=-1)
+        dir_loss = (1 - dir_sim) * y_true_r[:, :, 1].unsqueeze(1)
+
+        cost_matrix_m = (self.md_lmd * md_loss +
+                         self.fa_lmd * fa_loss +
+                         self.dir_lmd * dir_loss)
+        cost_matrix_weighted = cost_matrix_m * y_true_r[:, :, 5].unsqueeze(1)
+        cost_matrix = cost_matrix_weighted + self.wt_lmd * wt_loss
+
+        extnc_scores = torch.sigmoid(y_pred[:, :, 6])
+        extnc_cost = (1 - extnc_scores).unsqueeze(2).expand(-1, -1, y_true_r.size(1))
+        cost_matrix = cost_matrix + self.exs_lmd * extnc_cost
+
+        cost_np = cost_matrix.detach().cpu().numpy()
+
+        indices = []
+        for b in range(batch_size):
+            n_comp = n_comps[b].item() if torch.is_tensor(n_comps[b]) else int(n_comps[b])
+            real_costs = cost_np[b, :, :n_comp]
+            row_idx, col_idx = linear_sum_assignment(real_costs)
+            indices.append((row_idx, col_idx))
+
+        return indices

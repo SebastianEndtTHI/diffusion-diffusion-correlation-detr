@@ -195,22 +195,50 @@ def main(args):
     all_ground_truths = np.concatenate(all_ground_truths, axis=0)
     all_n_comps = np.concatenate(all_n_comps, axis=0)
 
+    n_samples, n_queries, n_feats = all_predictions.shape
+
+    # matched_predictions[i]: queries reordered so that slot j corresponds to
+    # ground-truth compartment j (for j < n_comps[i]); unmatched queries fill
+    # the remaining slots in their original order.
+    matched_predictions = np.full_like(all_predictions, fill_value=np.nan)
+    all_match_indices = []  # list of (row_idx, col_idx) per sample
+
     individual_losses = []
     for idx, (pred_np, gt_np) in enumerate(zip(all_predictions, all_ground_truths)):
         pred_tensor = torch.tensor(pred_np, dtype=torch.float32, device=args.device).unsqueeze(0)
         gt_tensor = torch.tensor(gt_np, dtype=torch.float32, device=args.device).unsqueeze(0)
         n_comp = [all_n_comps[idx]]  # HungarianLoss expects a list/array per batch
+
+        # compute loss
         loss_components = criterion(pred_tensor, gt_tensor, n_comp)
         individual_losses.append([l.item() if hasattr(l, 'item') else float(l) for l in loss_components])
 
+        # get Hungarian match: row_idx = query indices, col_idx = GT compartment indices
+        (row_idx, col_idx), = criterion.get_matching_indices(pred_tensor, gt_tensor, n_comp)
+        all_match_indices.append((row_idx, col_idx))
+
+        # place each matched query into its corresponding GT-compartment slot
+        matched_predictions[idx, col_idx, :] = pred_np[row_idx, :]
+
+        # fill unmatched query slots (col >= n_comp) with remaining predictions
+        unmatched_query_mask = np.ones(n_queries, dtype=bool)
+        unmatched_query_mask[row_idx] = False
+        unmatched_queries = np.where(unmatched_query_mask)[0]
+
+        unmatched_slots = [s for s in range(n_queries) if s not in col_idx]
+        for slot, q in zip(unmatched_slots, unmatched_queries):
+            matched_predictions[idx, slot, :] = pred_np[q, :]
+
     results = {
-        'predictions': all_predictions,
+        'predictions': matched_predictions,       # queries reordered to match GT compartment order
+        'predictions_raw': all_predictions,        # original model output, unordered
         'ground_truths': all_ground_truths,
         'losses': individual_losses,
-        'n_comp': all_n_comps
+        'n_comp': all_n_comps,
+        'match_indices': all_match_indices,        # list of (row_idx, col_idx) per sample
     }
 
-    with open(os.path.normpath(os.path.join(os.path.dirname(__file__), '../models', 'detr_output.pkl')),
+    with open(os.path.normpath(os.path.join(os.path.dirname(__file__), '../models', args.model_folder, 'detr_output.pkl')),
               'wb') as f:
         pickle.dump(results, f)
 
